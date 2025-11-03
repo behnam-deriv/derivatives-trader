@@ -1,16 +1,21 @@
 import React from 'react';
 
-import { BrandDerivLogoCoralIcon } from '@deriv/quill-icons';
 import { getBrandHomeUrl } from '@deriv/shared';
 import { observer, useStore } from '@deriv/stores';
+
+import { BrandDerivLogoCoralIcon } from '@deriv/quill-icons';
+import { useMobileBridge } from 'App/Hooks/useMobileBridge';
 
 const BrandShortLogo = observer(() => {
     const { common } = useStore();
     const { current_language } = common;
+    const { sendBridgeEvent } = useMobileBridge();
 
     const handleLogoClick = () => {
-        const brandUrl = getBrandHomeUrl(current_language);
-        window.location.href = brandUrl;
+        sendBridgeEvent('trading:home', () => {
+            const brandUrl = getBrandHomeUrl(current_language);
+            window.location.href = brandUrl;
+        });
     };
 
     return (
