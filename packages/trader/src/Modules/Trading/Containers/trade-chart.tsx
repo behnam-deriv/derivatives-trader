@@ -6,13 +6,7 @@ import { observer, useStore } from '@deriv/stores';
 import { useDevice } from '@deriv-com/ui';
 
 import { SmartChart } from 'Modules/SmartChart';
-import {
-    createSmartChartsChampionAdapter,
-    TGetQuotes,
-    TGranularity,
-    TSubscribeQuotes,
-    TUnsubscribeQuotes,
-} from 'Modules/SmartChart/Adapters';
+import { useSmartChartsAdapter } from 'Modules/SmartChart/Hooks/useSmartChartsAdapter';
 import { useTraderStore } from 'Stores/useTraderStores';
 
 import AccumulatorsChartElements from '../../SmartChart/Components/Markers/accumulators-chart-elements';
@@ -78,63 +72,16 @@ const TradeChart = observer((props: TTradeChartProps) => {
     };
 
     const { current_spot, current_spot_time } = accumulator_barriers_data || {};
-    // Initialize SmartCharts Champion Adapter with store data for better performance
-    const smartChartsAdapter = React.useMemo(() => {
-        return createSmartChartsChampionAdapter({
+
+    // Use centralized SmartCharts adapter hook
+    const { chartData, isLoading, error, getQuotes, subscribeQuotes, unsubscribeQuotes, retryFetchChartData } =
+        useSmartChartsAdapter({
             debug: false,
+            activeSymbols: active_symbols,
+            is_accumulator,
+            updateAccumulatorBarriersData,
+            setTickData,
         });
-    }, []);
-
-    // Transform active symbols and fetch trading times for SmartCharts Champion format
-    const [chartData, setChartData] = React.useState<{
-        activeSymbols: any;
-        tradingTimes?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
-    }>({
-        activeSymbols: JSON.parse(JSON.stringify(active_symbols)),
-    });
-    const [isLoading, setIsLoading] = React.useState(true);
-    const [error, setError] = React.useState<Error | null>(null);
-
-    // Fetch chart data including trading times
-    React.useEffect(() => {
-        const fetchChartData = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const data = await smartChartsAdapter.getChartData();
-                setChartData({
-                    activeSymbols: data.activeSymbols,
-                    tradingTimes: data.tradingTimes,
-                });
-            } catch (error) {
-                // eslint-disable-next-line no-console
-                console.error('Error fetching chart data:', error);
-                setError(error instanceof Error ? error : new Error('Failed to fetch chart data'));
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchChartData();
-    }, [smartChartsAdapter]);
-
-    const retryFetchChartData = React.useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const data = await smartChartsAdapter.getChartData();
-            setChartData({
-                activeSymbols: data.activeSymbols,
-                tradingTimes: data.tradingTimes,
-            });
-        } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error('Error fetching chart data:', error);
-            setError(error instanceof Error ? error : new Error('Failed to fetch chart data'));
-        } finally {
-            setIsLoading(false);
-        }
-    }, [smartChartsAdapter]);
 
     const bottomWidgets = React.useCallback(
         ({ digits, tick }: TBottomWidgetsParams) => (
@@ -164,126 +111,6 @@ const TradeChart = observer((props: TTradeChartProps) => {
                 },
                 has_synthetic_index ? [synthetic_index] : []
             );
-    };
-
-    // Type guard for granularity validation
-    const isValidGranularity = (g: number): g is TGranularity => {
-        return [0, 60, 120, 180, 300, 600, 900, 1800, 3600, 7200, 14400, 28800, 86400].includes(g);
-    };
-
-    // Create wrapper functions for SmartCharts Champion API
-    const getQuotes: TGetQuotes = async params => {
-        if (!smartChartsAdapter) {
-            throw new Error('Adapter not initialized');
-        }
-
-        // Validate granularity with type guard
-        const validatedGranularity = isValidGranularity(params.granularity) ? params.granularity : 0;
-
-        const result = await smartChartsAdapter.getQuotes({
-            symbol: params.symbol,
-            granularity: validatedGranularity,
-            count: params.count,
-            start: params.start,
-            end: params.end,
-        });
-
-        // Transform adapter result to SmartCharts Champion format
-        if (params.granularity === 0) {
-            // For ticks, return history format
-            return {
-                history: {
-                    prices: result.quotes.map(q => q.Close),
-                    times: result.quotes.map(q => parseInt(q.Date)),
-                },
-            };
-        }
-        // For candles, return candles format
-        return {
-            candles: result.quotes.map(q => ({
-                open: q.Open || q.Close,
-                high: q.High || q.Close,
-                low: q.Low || q.Close,
-                close: q.Close,
-                epoch: parseInt(q.Date),
-            })),
-        };
-    };
-
-    const subscribeQuotes: TSubscribeQuotes = (params, callback) => {
-        if (!smartChartsAdapter) {
-            return () => {};
-        }
-
-        const passthrough_callback = (...args: [any]) => {
-            callback(...args);
-            if ('ohlc' in args[0] && granularity !== 0) {
-                const { close, pip_size } = args[0].ohlc as { close: string; pip_size: number };
-                if (close && pip_size) setTickData({ pip_size, quote: Number(close) });
-            }
-            interface AccumulatorBarriersData {
-                current_spot?: number;
-                current_spot_time?: number;
-                tick_update_timestamp?: number;
-                accumulators_high_barrier?: string;
-                accumulators_low_barrier?: string;
-                barrier_spot_distance?: string;
-                previous_spot_time?: number;
-            }
-
-            if (is_accumulator) {
-                let current_spot_data: AccumulatorBarriersData = {};
-
-                if ('tick' in args[0]) {
-                    const { epoch, quote } = args[0].tick as any;
-                    current_spot_data = {
-                        current_spot: quote,
-                        current_spot_time: epoch,
-                    };
-                } else if ('history' in args[0]) {
-                    const { prices, times } = args[0].history as any;
-                    current_spot_data = {
-                        current_spot: prices?.[prices?.length - 1],
-                        current_spot_time: times?.[times?.length - 1],
-                        previous_spot_time: times?.[times?.length - 2],
-                    };
-                } else {
-                    return;
-                }
-
-                updateAccumulatorBarriersData(current_spot_data);
-            }
-        };
-
-        // Validate granularity with type guard
-        const validatedGranularity = isValidGranularity(params.granularity) ? params.granularity : 0;
-
-        return smartChartsAdapter.subscribeQuotes(
-            {
-                symbol: params.symbol,
-                granularity: validatedGranularity,
-            },
-            quote => {
-                passthrough_callback(quote);
-            }
-        );
-    };
-
-    const unsubscribeQuotes: TUnsubscribeQuotes = request => {
-        if (smartChartsAdapter) {
-            // If we have request details, use the adapter's unsubscribe method
-            if (request?.symbol && typeof request.granularity !== 'undefined') {
-                // Validate granularity with type guard
-                const validatedGranularity = isValidGranularity(request.granularity) ? request.granularity : 0;
-                smartChartsAdapter.unsubscribeQuotes({
-                    symbol: request.symbol,
-                    granularity: validatedGranularity,
-                });
-            } else {
-                // Fallback: unsubscribe all via transport
-                smartChartsAdapter.transport.unsubscribeAll('ticks');
-            }
-        }
     };
 
     const barriers: ChartBarrierStore[] = main_barrier ? [main_barrier, ...extra_barriers] : extra_barriers;
