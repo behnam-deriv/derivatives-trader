@@ -115,9 +115,9 @@ describe('getChartAnalyticsData', () => {
         });
         expect(getChartAnalyticsData(STATE_TYPES.INDICATOR_INFO_TOGGLE)).toEqual({});
     });
-    it('should return correct object with data and event_type for STATE_TYPES.INDICATORS_MODAL_TOGGLE', () => {
+    it('should return correct object with data and event_type for STATE_TYPES.INDICATORS_MODAL_OPEN', () => {
         expect(
-            getChartAnalyticsData(STATE_TYPES.INDICATORS_MODAL_TOGGLE, {
+            getChartAnalyticsData(STATE_TYPES.INDICATORS_MODAL_OPEN, {
                 is_open: mocked_data.is_open,
             })
         ).toEqual({
@@ -125,11 +125,11 @@ describe('getChartAnalyticsData', () => {
             event_type: indicators_event_type,
         });
         expect(
-            getChartAnalyticsData(STATE_TYPES.INDICATORS_MODAL_TOGGLE, {
+            getChartAnalyticsData(STATE_TYPES.INDICATORS_MODAL_OPEN, {
                 is_open: false,
             })
         ).toEqual({});
-        expect(getChartAnalyticsData(STATE_TYPES.INDICATORS_MODAL_TOGGLE)).toEqual({});
+        expect(getChartAnalyticsData(STATE_TYPES.INDICATORS_MODAL_OPEN)).toEqual({});
     });
     it('should return correct object with data and event_type for STATE_TYPES.INDICATOR_ADDED', () => {
         expect(
