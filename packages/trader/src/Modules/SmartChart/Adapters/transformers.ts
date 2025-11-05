@@ -3,6 +3,50 @@
  * Transforms existing Deriv data structures to SmartCharts Champion format
  */
 
+import type { ILogger } from './types';
+
+/**
+ * Logger implementation for transformers layer
+ */
+class TransformersLogger implements ILogger {
+    private isDebugEnabled: boolean;
+
+    constructor(debugEnabled: boolean = false) {
+        this.isDebugEnabled = debugEnabled;
+    }
+
+    info(message: string, data?: any): void {
+        if (this.isDebugEnabled) {
+            // eslint-disable-next-line no-console
+            console.info(`[Transformers] ${message}`, data || '');
+        }
+    }
+
+    error(message: string, error?: any): void {
+        if (this.isDebugEnabled) {
+            // eslint-disable-next-line no-console
+            console.error(`[Transformers] ${message}`, error || '');
+        }
+    }
+
+    warn(message: string, data?: any): void {
+        if (this.isDebugEnabled) {
+            // eslint-disable-next-line no-console
+            console.warn(`[Transformers] ${message}`, data || '');
+        }
+    }
+
+    debug(message: string, data?: any): void {
+        if (this.isDebugEnabled) {
+            // eslint-disable-next-line no-console
+            console.debug(`[Transformers] ${message}`, data || '');
+        }
+    }
+}
+
+// Create logger instance - debug mode can be controlled via environment or config
+const logger = new TransformersLogger(process.env.NODE_ENV === 'development');
+
 /**
  * Maps active symbols market codes to trading times market names
  */
@@ -74,6 +118,7 @@ export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
                 }
             });
         } catch (markets_error) {
+            logger.error('Failed to process markets data in enrichActiveSymbols', markets_error);
             return active_symbols;
         }
 
@@ -164,6 +209,7 @@ export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
         });
         return enriched_symbols;
     } catch (error) {
+        logger.error('Failed to enrich active symbols', error);
         return active_symbols;
     }
 }

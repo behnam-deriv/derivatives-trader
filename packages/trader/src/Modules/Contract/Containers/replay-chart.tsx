@@ -6,15 +6,9 @@ import { observer, useStore } from '@deriv/stores';
 import { Loader, useDevice } from '@deriv-com/ui';
 
 import { SmartChart } from 'Modules/SmartChart';
-import {
-    createSmartChartsChampionAdapter,
-    TGetQuotes,
-    TGranularity,
-    TSubscribeQuotes,
-    TUnsubscribeQuotes,
-} from 'Modules/SmartChart/Adapters';
 import ChartMarker from 'Modules/SmartChart/Components/Markers/marker';
 import ResetContractChartElements from 'Modules/SmartChart/Components/Markers/reset-contract-chart-elements';
+import { useSmartChartsAdapter } from 'Modules/SmartChart/Hooks/useSmartChartsAdapter';
 
 import { ChartBottomWidgets, ChartTopWidgets } from './contract-replay-widget';
 
@@ -62,61 +56,16 @@ const ReplayChart = observer(
         const scroll_to_epoch = allow_scroll_to_epoch && contract_config ? contract_config.scroll_to_epoch : undefined;
         const all_ticks = audit_details ? audit_details.all_ticks : [];
 
-        // Initialize SmartCharts Champion Adapter with store data for better performance
-        const smartChartsAdapter = React.useMemo(() => {
-            return createSmartChartsChampionAdapter({
+        // Use centralized SmartCharts adapter hook
+        const { chartData, isLoading, error, getQuotes, subscribeQuotes, unsubscribeQuotes, retryFetchChartData } =
+            useSmartChartsAdapter({
                 debug: false,
+                activeSymbols: [], // Replay chart doesn't need active symbols
+                granularity: granularity || 0,
+                is_accumulator: !!is_accumulator_contract,
+                updateAccumulatorBarriersData: () => {}, // No-op for replay chart
+                setTickData: () => {}, // No-op for replay chart
             });
-        }, []);
-
-        // Transform active symbols and fetch trading times for SmartCharts Champion format
-        const [chartData, setChartData] = React.useState<{
-            activeSymbols: any;
-            tradingTimes?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
-        }>({ activeSymbols: [] });
-        const [isLoading, setIsLoading] = React.useState(true);
-        const [error, setError] = React.useState<Error | null>(null);
-
-        // Fetch chart data including trading times
-        React.useEffect(() => {
-            const fetchChartData = async () => {
-                setIsLoading(true);
-                setError(null);
-                try {
-                    const data = await smartChartsAdapter.getChartData();
-                    setChartData({
-                        activeSymbols: data.activeSymbols,
-                        tradingTimes: data.tradingTimes,
-                    });
-                } catch (error) {
-                    // eslint-disable-next-line no-console
-                    console.error('Error fetching chart data:', error);
-                    setError(error instanceof Error ? error : new Error('Failed to fetch chart data'));
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-
-            fetchChartData();
-        }, [smartChartsAdapter]);
-
-        const retryFetchChartData = React.useCallback(async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const data = await smartChartsAdapter.getChartData();
-                setChartData({
-                    activeSymbols: data.activeSymbols,
-                    tradingTimes: data.tradingTimes,
-                });
-            } catch (error) {
-                // eslint-disable-next-line no-console
-                console.error('Error fetching chart data:', error);
-                setError(error instanceof Error ? error : new Error('Failed to fetch chart data'));
-            } finally {
-                setIsLoading(false);
-            }
-        }, [smartChartsAdapter]);
 
         const isBottomWidgetVisible = () => {
             return !isMobile && is_digit_contract;
@@ -139,86 +88,6 @@ const ReplayChart = observer(
 
         const has_ended = !!getEndTime(contract_info);
         const is_dtrader_v2_enabled = isMobile; // V2 for mobile, V1 for desktop
-
-        // Type guard for granularity validation
-        const isValidGranularity = (g: number): g is TGranularity => {
-            return [0, 60, 120, 180, 300, 600, 900, 1800, 3600, 7200, 14400, 28800, 86400].includes(g);
-        };
-
-        // Create wrapper functions for SmartCharts Champion API
-        const getQuotes: TGetQuotes = async params => {
-            if (!smartChartsAdapter) {
-                throw new Error('Adapter not initialized');
-            }
-
-            // Validate granularity with type guard
-            const validatedGranularity = isValidGranularity(params.granularity) ? params.granularity : 0;
-
-            const result = await smartChartsAdapter.getQuotes({
-                symbol: params.symbol,
-                granularity: validatedGranularity,
-                count: params.count,
-                start: params.start,
-                end: params.end,
-            });
-
-            // Transform adapter result to SmartCharts Champion format
-            if (params.granularity === 0) {
-                // For ticks, return history format
-                return {
-                    history: {
-                        prices: result.quotes.map(q => q.Close),
-                        times: result.quotes.map(q => parseInt(q.Date)),
-                    },
-                };
-            }
-            // For candles, return candles format
-            return {
-                candles: result.quotes.map(q => ({
-                    open: q.Open || q.Close,
-                    high: q.High || q.Close,
-                    low: q.Low || q.Close,
-                    close: q.Close,
-                    epoch: parseInt(q.Date),
-                })),
-            };
-        };
-
-        const subscribeQuotes: TSubscribeQuotes = (params, callback) => {
-            if (!smartChartsAdapter) {
-                return () => {};
-            }
-
-            // Validate granularity with type guard
-            const validatedGranularity = isValidGranularity(params.granularity) ? params.granularity : 0;
-
-            return smartChartsAdapter.subscribeQuotes(
-                {
-                    symbol: params.symbol,
-                    granularity: validatedGranularity,
-                },
-                quote => {
-                    callback(quote);
-                }
-            );
-        };
-
-        const unsubscribeQuotes: TUnsubscribeQuotes = request => {
-            if (smartChartsAdapter) {
-                // If we have request details, use the adapter's unsubscribe method
-                if (request?.symbol && typeof request.granularity !== 'undefined') {
-                    // Validate granularity with type guard
-                    const validatedGranularity = isValidGranularity(request.granularity) ? request.granularity : 0;
-                    smartChartsAdapter.unsubscribeQuotes({
-                        symbol: request.symbol,
-                        granularity: validatedGranularity,
-                    });
-                } else {
-                    // Fallback: unsubscribe all via transport
-                    smartChartsAdapter.transport.unsubscribeAll('ticks');
-                }
-            }
-        };
 
         if (!symbol) return <Loader />;
 
@@ -309,7 +178,6 @@ const ReplayChart = observer(
                     <ResetContractChartElements contract_info={contract_info} />
                 )}
             </SmartChart>
-            // <>Chart here</>
         );
     }
 );

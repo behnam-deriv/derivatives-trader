@@ -1,7 +1,7 @@
 /* eslint-disable import/no-named-as-default-member */
 /* eslint-disable import/no-named-as-default */
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 
 import App from 'App/app.jsx';
 import initStore from 'App/initStore';
@@ -28,8 +28,21 @@ const initApp = async () => {
 
     const wrapper = document.getElementById('derivatives_trader');
     if (wrapper) {
-        // eslint-disable-next-line react/no-deprecated
-        ReactDOM.render(<App root_store={root_store} />, wrapper);
+        // Create root with React 18 compatibility options
+        const root = createRoot(wrapper, {
+            // Add error recovery handler for better debugging
+            onRecoverableError: error => {
+                // Only log in development to avoid console errors in production
+                if (process.env.NODE_ENV === 'development') {
+                    // eslint-disable-next-line no-console
+                    console.error('React recoverable error:', error);
+                }
+            },
+        });
+
+        // Render the app - React 18 will handle batching automatically
+        // For MobX compatibility, ensure stores are properly configured with React 18
+        root.render(<App root_store={root_store} />);
     }
 };
 

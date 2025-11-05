@@ -5,6 +5,8 @@
  * Implements TGetQuotes and TSubscribeQuotes providers for historical and streaming data.
  */
 
+import { toJS } from 'mobx';
+
 import { createServices } from './services';
 import { enrichActiveSymbols } from './transformers';
 import { createTransport } from './transport';
@@ -348,18 +350,14 @@ export function buildSmartChartsChampionAdapter(
             try {
                 // Get active symbols from existing store data (no API call needed)
                 const activeSymbolsData = await services.getActiveSymbols();
-                // Convert proxy objects to plain JavaScript objects for proper transformation
-                const plainActiveSymbols = Array.isArray(activeSymbolsData)
-                    ? JSON.parse(JSON.stringify(activeSymbolsData))
-                    : [];
+                // Convert MobX observables to plain JavaScript objects using toJS (more efficient than JSON roundtrip)
+                const plainActiveSymbols = Array.isArray(activeSymbolsData) ? toJS(activeSymbolsData) : [];
 
                 // Get trading times using optimized function that leverages existing caching
                 const tradingTimesData = await services.getTradingTimes();
 
-                // Convert proxy objects to plain JavaScript objects for trading times
-                const plainTradingTimes = tradingTimesData
-                    ? JSON.parse(JSON.stringify(tradingTimesData.tradingTimes))
-                    : {};
+                // Convert MobX observables to plain JavaScript objects using toJS (safer and faster)
+                const plainTradingTimes = tradingTimesData ? toJS(tradingTimesData.tradingTimes) : {};
 
                 // Transform to adapter format using plain objects
                 const activeSymbols = transformations.toActiveSymbols(plainActiveSymbols);
