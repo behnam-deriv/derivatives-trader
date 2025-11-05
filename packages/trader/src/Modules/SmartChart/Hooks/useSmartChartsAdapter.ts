@@ -9,17 +9,34 @@ import {
     TUnsubscribeQuotes,
 } from '../Adapters';
 
+interface AccumulatorBarriersData {
+    current_spot?: number;
+    current_spot_time?: number;
+    tick_update_timestamp?: number;
+    accumulators_high_barrier?: string;
+    accumulators_low_barrier?: string;
+    barrier_spot_distance?: string;
+    previous_spot_time?: number;
+}
+
+interface TickData {
+    pip_size: number;
+    quote: number;
+}
+
+// Using any[] for activeSymbols to avoid complex type conflicts with different symbol formats
+// This is acceptable as the symbols are processed by the adapter which handles type validation
 interface UseSmartChartsAdapterConfig {
     debug?: boolean;
-    activeSymbols?: any;
+    activeSymbols?: any[];
     granularity?: number;
     is_accumulator?: boolean;
-    updateAccumulatorBarriersData?: (data: any) => void;
-    setTickData?: (data: any) => void;
+    updateAccumulatorBarriersData?: (data: AccumulatorBarriersData) => void;
+    setTickData?: (data: TickData) => void;
 }
 
 interface ChartData {
-    activeSymbols: any;
+    activeSymbols: any[];
     tradingTimes?: Record<string, { isOpen: boolean; openTime: string; closeTime: string }>;
 }
 
@@ -93,8 +110,13 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
     }, [fetchChartData]);
 
     // Initialize chart data on mount
+    const hasFetchedRef = React.useRef(false);
+
     React.useEffect(() => {
-        fetchChartData();
+        if (!hasFetchedRef.current) {
+            hasFetchedRef.current = true;
+            fetchChartData();
+        }
     }, [fetchChartData]);
 
     // Memoized getQuotes function
@@ -139,6 +161,20 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
         [smartChartsAdapter, isValidGranularity]
     );
 
+    // Use refs to avoid stale closure issues in subscription callbacks
+    const granularityRef = React.useRef(granularity);
+    const isAccumulatorRef = React.useRef(is_accumulator);
+    const updateAccumulatorBarriersDataRef = React.useRef(updateAccumulatorBarriersData);
+    const setTickDataRef = React.useRef(setTickData);
+
+    // Update refs when values change
+    React.useEffect(() => {
+        granularityRef.current = granularity;
+        isAccumulatorRef.current = is_accumulator;
+        updateAccumulatorBarriersDataRef.current = updateAccumulatorBarriersData;
+        setTickDataRef.current = setTickData;
+    }, [granularity, is_accumulator, updateAccumulatorBarriersData, setTickData]);
+
     // Memoized subscribeQuotes function
     const subscribeQuotes = React.useCallback<TSubscribeQuotes>(
         (params, callback) => {
@@ -150,23 +186,13 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
                 callback(...args);
 
                 // Handle tick data for non-tick granularities
-                if ('ohlc' in args[0] && granularity !== 0 && setTickData) {
+                if ('ohlc' in args[0] && granularityRef.current !== 0 && setTickDataRef.current) {
                     const { close, pip_size } = args[0].ohlc as { close: string; pip_size: number };
-                    if (close && pip_size) setTickData({ pip_size, quote: Number(close) });
+                    if (close && pip_size) setTickDataRef.current({ pip_size, quote: Number(close) });
                 }
 
                 // Handle accumulator barriers data
-                if (is_accumulator && updateAccumulatorBarriersData) {
-                    interface AccumulatorBarriersData {
-                        current_spot?: number;
-                        current_spot_time?: number;
-                        tick_update_timestamp?: number;
-                        accumulators_high_barrier?: string;
-                        accumulators_low_barrier?: string;
-                        barrier_spot_distance?: string;
-                        previous_spot_time?: number;
-                    }
-
+                if (isAccumulatorRef.current && updateAccumulatorBarriersDataRef.current) {
                     let current_spot_data: AccumulatorBarriersData = {};
 
                     if ('tick' in args[0]) {
@@ -186,7 +212,7 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
                         return;
                     }
 
-                    updateAccumulatorBarriersData(current_spot_data);
+                    updateAccumulatorBarriersDataRef.current(current_spot_data);
                 }
             };
 
@@ -203,14 +229,7 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
                 }
             );
         },
-        [
-            smartChartsAdapter,
-            granularity,
-            is_accumulator,
-            updateAccumulatorBarriersData,
-            setTickData,
-            isValidGranularity,
-        ]
+        [smartChartsAdapter, isValidGranularity]
     );
 
     // Memoized unsubscribeQuotes function
@@ -233,6 +252,16 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
         },
         [smartChartsAdapter, isValidGranularity]
     );
+
+    // Cleanup effect to prevent memory leaks from subscriptions
+    React.useEffect(() => {
+        return () => {
+            // Cleanup all subscriptions on unmount or when adapter changes
+            if (smartChartsAdapter?.transport) {
+                smartChartsAdapter.transport.unsubscribeAll('ticks');
+            }
+        };
+    }, [smartChartsAdapter]);
 
     return {
         smartChartsAdapter,

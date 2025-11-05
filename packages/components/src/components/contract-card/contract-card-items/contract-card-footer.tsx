@@ -41,12 +41,14 @@ const CardFooter = ({
 }: TCardFooterPropTypes) => {
     const { in_prop } = useNewRowTransition(!!should_show_transition);
 
-    // React 18 fix: Always call useEffect hook to avoid conditional hook usage
+    // React 18 fix: Call onFooterEntered immediately when transitions are disabled
+    // Only run when should_show_transition changes to avoid unnecessary re-renders
     React.useEffect(() => {
         if (!should_show_transition && onFooterEntered) {
             onFooterEntered();
         }
-    }, [should_show_transition, onFooterEntered]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [should_show_transition]);
 
     const is_valid_to_cancel = isValidToCancel(contract_info);
 

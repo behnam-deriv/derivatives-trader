@@ -83,8 +83,8 @@ describe('SmartChart Adapters - Main Index', () => {
                     Close: 1.1234,
                     DT: new Date(1609459200 * 1000),
                 });
-                expect(result.meta.symbol).toBe('EURUSD');
-                expect(result.meta.granularity).toBe(0);
+                expect(result.meta?.symbol).toBe('EURUSD');
+                expect(result.meta?.granularity).toBe(0);
             });
 
             it('should transform candle data (granularity > 0)', () => {
@@ -119,8 +119,8 @@ describe('SmartChart Adapters - Main Index', () => {
                     Close: 1.1235,
                     DT: new Date(1609459200 * 1000),
                 });
-                expect(result.meta.symbol).toBe('EURUSD');
-                expect(result.meta.granularity).toBe(60);
+                expect(result.meta?.symbol).toBe('EURUSD');
+                expect(result.meta?.granularity).toBe(60);
             });
 
             it('should handle fallback prices/times arrays', () => {
@@ -144,8 +144,8 @@ describe('SmartChart Adapters - Main Index', () => {
                 const result = transformations.toTGetQuotesResult(null, 0);
 
                 expect(result.quotes).toHaveLength(0);
-                expect(result.meta.symbol).toBe('');
-                expect(result.meta.granularity).toBe(0);
+                expect(result.meta?.symbol).toBe('');
+                expect(result.meta?.granularity).toBe(0);
             });
 
             it('should include pip_size in meta when available', () => {
@@ -157,7 +157,7 @@ describe('SmartChart Adapters - Main Index', () => {
 
                 const result = transformations.toTGetQuotesResult(response, 0);
 
-                expect(result.meta.delay_amount).toBe(0.0001);
+                expect(result.meta?.delay_amount).toBe(0.0001);
             });
         });
 
@@ -399,8 +399,8 @@ describe('SmartChart Adapters - Main Index', () => {
                 });
 
                 expect(result.quotes).toHaveLength(2);
-                expect(result.meta.symbol).toBe('EURUSD');
-                expect(result.meta.granularity).toBe(0);
+                expect(result.meta?.symbol).toBe('EURUSD');
+                expect(result.meta?.granularity).toBe(0);
             });
 
             it('should get historical quotes for candles (granularity > 0)', async () => {

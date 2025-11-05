@@ -7,6 +7,7 @@ import { useDevice } from '@deriv-com/ui';
 
 import { SmartChart } from 'Modules/SmartChart';
 import { useSmartChartsAdapter } from 'Modules/SmartChart/Hooks/useSmartChartsAdapter';
+import { CHART_CONSTANTS, getMarketsOrder } from 'Modules/SmartChart/Utils/chart-utils';
 import { useTraderStore } from 'Stores/useTraderStores';
 
 import AccumulatorsChartElements from '../../SmartChart/Components/Markers/accumulators-chart-elements';
@@ -14,8 +15,6 @@ import ToolbarWidgets from '../../SmartChart/Components/toolbar-widgets';
 
 import { ChartBottomWidgets } from './chart-widgets';
 import type { TBottomWidgetsParams } from './trade';
-
-type ActiveSymbols = NonNullable<TActiveSymbolsResponse['active_symbols']>;
 
 type TTradeChartProps = {
     bottomWidgets?: (props: TBottomWidgetsParams) => React.ReactElement;
@@ -67,8 +66,13 @@ const TradeChart = observer((props: TTradeChartProps) => {
         language: current_language.toLowerCase(),
         position: is_chart_layout_default ? 'bottom' : 'left',
         theme: is_dark_mode_on ? 'dark' : 'light',
-        ...(is_accumulator ? { whitespace: 190, minimumLeftBars: isMobile ? 3 : undefined } : {}),
-        ...(has_barrier ? { whitespace: 110 } : {}),
+        ...(is_accumulator
+            ? {
+                  whitespace: CHART_CONSTANTS.ACCUMULATOR_WHITESPACE,
+                  minimumLeftBars: isMobile ? CHART_CONSTANTS.ACCUMULATOR_MIN_LEFT_BARS_MOBILE : undefined,
+              }
+            : {}),
+        ...(has_barrier ? { whitespace: CHART_CONSTANTS.BARRIER_WHITESPACE } : {}),
     };
 
     const { current_spot, current_spot_time } = accumulator_barriers_data || {};
@@ -97,26 +101,11 @@ const TradeChart = observer((props: TTradeChartProps) => {
         }
     }, [is_accumulator, onChange, prev_contract_type, show_digits_stats]);
 
-    const getMarketsOrder = (active_symbols: ActiveSymbols): string[] => {
-        const synthetic_index = 'synthetic_index';
-        const has_synthetic_index = active_symbols.some(s => s.market === synthetic_index);
-        return active_symbols
-            .slice()
-            .sort((a, b) => ((a.underlying_symbol || '') < (b.underlying_symbol || '') ? -1 : 1))
-            .map(s => s.market)
-            .reduce(
-                (arr: string[], market: string) => {
-                    if (arr.indexOf(market) === -1) arr.push(market);
-                    return arr;
-                },
-                has_synthetic_index ? [synthetic_index] : []
-            );
-    };
-
     const barriers: ChartBarrierStore[] = main_barrier ? [main_barrier, ...extra_barriers] : extra_barriers;
 
     // max ticks to display for mobile view for tick chart
-    const max_ticks = granularity === 0 ? 8 : 24;
+    const max_ticks =
+        granularity === 0 ? CHART_CONSTANTS.MAX_TICKS_MOBILE_TICK : CHART_CONSTANTS.MAX_TICKS_MOBILE_CANDLE;
 
     if (!symbol || !active_symbols.length) return null;
 
@@ -152,7 +141,9 @@ const TradeChart = observer((props: TTradeChartProps) => {
 
     return (
         <SmartChart
-            drawingToolFloatingMenuPosition={isMobile ? { x: 100, y: 100 } : { x: 400, y: 200 }}
+            drawingToolFloatingMenuPosition={
+                isMobile ? CHART_CONSTANTS.MOBILE_DRAWING_TOOL_POSITION : CHART_CONSTANTS.DESKTOP_DRAWING_TOOL_POSITION
+            }
             id='trade'
             ref={ref}
             barriers={barriers}
@@ -188,10 +179,14 @@ const TradeChart = observer((props: TTradeChartProps) => {
             getMarketsOrder={getMarketsOrder}
             should_zoom_out_on_yaxis={is_accumulator}
             yAxisMargin={{
-                top: isMobile ? 76 : 106,
+                top: isMobile ? CHART_CONSTANTS.Y_AXIS_MARGIN_MOBILE : CHART_CONSTANTS.Y_AXIS_MARGIN_DESKTOP,
             }}
             isLive
-            leftMargin={!isMobile && is_positions_drawer_on ? 328 : 80}
+            leftMargin={
+                !isMobile && is_positions_drawer_on
+                    ? CHART_CONSTANTS.LEFT_MARGIN_WITH_DRAWER
+                    : CHART_CONSTANTS.LEFT_MARGIN_DEFAULT
+            }
         >
             {is_accumulator && (
                 <AccumulatorsChartElements
