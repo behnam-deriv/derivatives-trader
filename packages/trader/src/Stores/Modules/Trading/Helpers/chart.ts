@@ -158,7 +158,6 @@ const getIndicatorTypeFormAnalyticsData = (state: keyof typeof STATE_TYPES, opti
     const indicators_event_type = 'ce_indicators_types_form_v2';
     const indicators_subform = is_info_open ? SUBFORM_NAME.INDICATORS_INFO : SUBFORM_NAME.INDICATORS_TYPE;
     const info_open_close_action = is_info_open ? ACTION.INFO_OPEN : ACTION.INFO_CLOSE;
-    const open_close_action = is_open ? ACTION.OPEN : ACTION.CLOSE;
     const payload = {
         event_type: indicators_event_type,
     } as TPayload;
