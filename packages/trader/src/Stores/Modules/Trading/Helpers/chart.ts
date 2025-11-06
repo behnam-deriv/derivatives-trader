@@ -71,7 +71,7 @@ export const STATE_TYPES = {
     CHART_INTERVAL_CHANGE: 'CHART_INTERVAL_CHANGE',
     CHART_TYPE_CHANGE: 'CHART_TYPE_CHANGE',
     CHART_SWITCH_TOGGLE: 'CHART_SWITCH_TOGGLE',
-    MARKET_MENUE_MODAL_TOGGLE: 'MARKET_MENUE_MODAL_TOGGLE',
+    MARKET_MENU_MODAL_TOGGLE: 'MARKET_MENU_MODAL_TOGGLE',
     FAVORITE_MARKETS_TOGGLE: 'FAVORITE_MARKETS_TOGGLE',
     INDICATOR_ADDED: 'INDICATOR_ADDED',
     INDICATOR_DELETED: 'INDICATOR_DELETED',
@@ -105,6 +105,14 @@ export const SUBFORM_NAME = {
 const getChartTypeFormAnalyticsData = (state: keyof typeof STATE_TYPES, option: TStateChangeOption = {}) => {
     const { chart_type_name = '', time_interval_name } = option;
     const chart_event_type = 'ce_chart_types_form_v2';
+
+    if (state === STATE_TYPES.CHART_MODE_MODAL_OPEN) {
+        return {
+            data: { action: ACTION.OPEN },
+            event_type: chart_event_type,
+        };
+    }
+
     const payload: TPayload = {
         data: {
             action: '',
@@ -113,16 +121,13 @@ const getChartTypeFormAnalyticsData = (state: keyof typeof STATE_TYPES, option: 
         },
         event_type: chart_event_type,
     };
-    if (!chart_type_name && state !== STATE_TYPES.CHART_MODE_MODAL_OPEN) return {};
+    if (!chart_type_name) return {};
     switch (state) {
         case STATE_TYPES.CHART_INTERVAL_CHANGE:
             payload.data.action = ACTION.CHOOSE_TIME_INTERVAL;
             break;
         case STATE_TYPES.CHART_TYPE_CHANGE:
             payload.data.action = ACTION.CHOOSE_CHART_TYPE;
-            break;
-        case STATE_TYPES.CHART_MODE_MODAL_OPEN:
-            payload.data.action = ACTION.OPEN;
             break;
         case STATE_TYPES.CHART_SWITCH_TOGGLE:
             payload.data.action = ACTION.CHART_SMOOTHING_TOGGLE;
@@ -216,14 +221,10 @@ const getIndicatorTypeFormAnalyticsData = (state: keyof typeof STATE_TYPES, opti
             };
             break;
         case STATE_TYPES.INDICATORS_MODAL_OPEN:
-            // Only send analytics event for "open" action, skip "close" action
-            if (is_open) {
-                payload.data = {
-                    action: ACTION.OPEN,
-                };
-            } else {
-                return {}; // Skip sending event for close action
-            }
+            payload.data = {
+                action: ACTION.OPEN,
+            };
+
             break;
         case STATE_TYPES.INDICATORS_CLEAR_ALL:
             payload.data = {
@@ -250,7 +251,7 @@ const getMarketTypeFormAnalyticsData = (state: keyof typeof STATE_TYPES, option:
         return {};
     }
     switch (state) {
-        case STATE_TYPES.MARKET_MENUE_MODAL_TOGGLE:
+        case STATE_TYPES.MARKET_MENU_MODAL_TOGGLE:
             payload.data = {
                 action: option.is_open ? ACTION.OPEN : ACTION.CLOSE,
             };
@@ -266,7 +267,6 @@ const getMarketTypeFormAnalyticsData = (state: keyof typeof STATE_TYPES, option:
             payload.data = {
                 action: ACTION.SEARCH,
                 search_string,
-                tab_market_name,
             };
             break;
         case STATE_TYPES.SYMBOL_CHANGE:
@@ -283,7 +283,7 @@ const getMarketTypeFormAnalyticsData = (state: keyof typeof STATE_TYPES, option:
 };
 
 const getDrawingToolsFormAnalyticsData = (state: keyof typeof STATE_TYPES, option: TStateChangeOption = {}) => {
-    const { drawing_tool_name = '', pxthickness = '', color_name = '' } = option;
+    const { drawing_tool_name = '', pxthickness = '', color_name = '', is_open } = option;
     const drawing_tools_event_type = 'ce_drawing_tools_form_v2';
     const payload = {
         event_type: drawing_tools_event_type,
@@ -352,6 +352,7 @@ export const getChartAnalyticsData = (state: keyof typeof STATE_TYPES, option: T
         STATE_TYPES.FAVORITE_MARKETS_TOGGLE,
         STATE_TYPES.MARKET_SEARCH,
         STATE_TYPES.SYMBOL_CHANGE,
+        STATE_TYPES.MARKET_MENU_MODAL_TOGGLE,
     ];
     const drawing_tools_form_events: string[] = [
         STATE_TYPES.DRAWING_TOOLS_MODAL_OPEN,
@@ -366,6 +367,5 @@ export const getChartAnalyticsData = (state: keyof typeof STATE_TYPES, option: T
     if (indicator_type_form_events.includes(state)) return getIndicatorTypeFormAnalyticsData(state, option);
     if (market_type_form_events.includes(state)) return getMarketTypeFormAnalyticsData(state, option);
     if (drawing_tools_form_events.includes(state)) return getDrawingToolsFormAnalyticsData(state, option);
-    if (chart_type_form_events.includes(state)) return getChartTypeFormAnalyticsData(state, option);
     return {};
 };

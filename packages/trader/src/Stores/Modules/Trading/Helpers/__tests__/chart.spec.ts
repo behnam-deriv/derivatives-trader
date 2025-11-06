@@ -12,6 +12,10 @@ describe('getChartAnalyticsData', () => {
         symbol: 'Volatility 75 (1s) Index',
         symbol_category: 'derived-synthetics-continuous_indices',
         time_interval_name: '1 minute',
+        drawing_tool_name: 'horizontal_line',
+        pxthickness: '2',
+        color_name: 'red',
+        cta_name: 'price',
     };
     const market_type_name = mocked_data.symbol;
     const tab_market_name = mocked_data.symbol_category;
@@ -124,12 +128,6 @@ describe('getChartAnalyticsData', () => {
             data: { action: ACTION.OPEN },
             event_type: indicators_event_type,
         });
-        expect(
-            getChartAnalyticsData(STATE_TYPES.INDICATORS_MODAL_OPEN, {
-                is_open: false,
-            })
-        ).toEqual({});
-        expect(getChartAnalyticsData(STATE_TYPES.INDICATORS_MODAL_OPEN)).toEqual({});
     });
     it('should return correct object with data and event_type for STATE_TYPES.INDICATOR_ADDED', () => {
         expect(
@@ -232,6 +230,7 @@ describe('getChartAnalyticsData', () => {
             data: {
                 action: ACTION.ADD_TO_FAVORITES,
                 market_type_name,
+                tab_market_name: '',
             },
             event_type: market_event_type,
         });
@@ -244,9 +243,173 @@ describe('getChartAnalyticsData', () => {
             data: {
                 action: ACTION.DELETE_FROM_FAVORITES,
                 market_type_name,
+                tab_market_name: '',
             },
             event_type: market_event_type,
         });
         expect(getChartAnalyticsData(STATE_TYPES.FAVORITE_MARKETS_TOGGLE)).toEqual({});
+    });
+
+    it('should return correct object with data and event_type for STATE_TYPES.CHART_MODE_MODAL_OPEN', () => {
+        expect(getChartAnalyticsData(STATE_TYPES.CHART_MODE_MODAL_OPEN)).toEqual({
+            data: { action: ACTION.OPEN },
+            event_type: chart_event_type,
+        });
+    });
+
+    it('should return correct object with data and event_type for STATE_TYPES.CHART_SWITCH_TOGGLE', () => {
+        expect(
+            getChartAnalyticsData(STATE_TYPES.CHART_SWITCH_TOGGLE, {
+                chart_type_name: mocked_data.chart_type_name,
+            })
+        ).toEqual({
+            data: {
+                action: ACTION.CHART_SMOOTHING_TOGGLE,
+                chart_type_name: mocked_data.chart_type_name,
+            },
+            event_type: chart_event_type,
+        });
+        expect(getChartAnalyticsData(STATE_TYPES.CHART_SWITCH_TOGGLE)).toEqual({});
+    });
+
+    it('should return correct object with data and event_type for STATE_TYPES.MARKET_MENU_MODAL_TOGGLE', () => {
+        expect(
+            getChartAnalyticsData(STATE_TYPES.MARKET_MENU_MODAL_TOGGLE, {
+                is_open: true,
+            })
+        ).toEqual({
+            data: { action: ACTION.OPEN },
+            event_type: market_event_type,
+        });
+        expect(
+            getChartAnalyticsData(STATE_TYPES.MARKET_MENU_MODAL_TOGGLE, {
+                is_open: false,
+            })
+        ).toEqual({
+            data: { action: ACTION.CLOSE },
+            event_type: market_event_type,
+        });
+    });
+
+    it('should return correct object with data and event_type for STATE_TYPES.INDICATOR_EDITED', () => {
+        expect(
+            getChartAnalyticsData(STATE_TYPES.INDICATOR_EDITED, {
+                indicator_type_name: mocked_data.indicator_type_name,
+                indicators_category_name: mocked_data.indicators_category_name,
+            })
+        ).toEqual({
+            data: {
+                action: ACTION.EDIT_ACTIVE,
+                indicator_type_name: mocked_data.indicator_type_name,
+                indicators_category_name: mocked_data.indicators_category_name,
+            },
+            event_type: indicators_event_type,
+        });
+        expect(getChartAnalyticsData(STATE_TYPES.INDICATOR_EDITED)).toEqual({});
+    });
+});
+
+describe('getChartAnalyticsData for crosshair events', () => {
+    const mocked_data = {
+        cta_name: 'price',
+    };
+    const crosshair_event_type = 'ce_crosshair_v2';
+
+    it('should return correct object with data and event_type for STATE_TYPES.CROSSHAIR_CLICK', () => {
+        expect(
+            getChartAnalyticsData(STATE_TYPES.CROSSHAIR_CLICK, {
+                cta_name: mocked_data.cta_name,
+            })
+        ).toEqual({
+            data: {
+                action: ACTION.CROSSHAIR_CLICK,
+                cta_name: mocked_data.cta_name,
+            },
+            event_type: crosshair_event_type,
+        });
+    });
+});
+
+describe('getChartAnalyticsData for drawing tools events', () => {
+    const mocked_data = {
+        drawing_tool_name: 'horizontal_line',
+        pxthickness: '2',
+        color_name: 'red',
+    };
+    const drawing_tools_event_type = 'ce_drawing_tools_form_v2';
+
+    it('should return correct object with data and event_type for STATE_TYPES.DRAWING_TOOLS_MODAL_OPEN', () => {
+        expect(getChartAnalyticsData(STATE_TYPES.DRAWING_TOOLS_MODAL_OPEN)).toEqual({
+            data: { action: ACTION.OPEN },
+            event_type: drawing_tools_event_type,
+        });
+    });
+
+    it('should return correct object with data and event_type for STATE_TYPES.DRAWING_TOOLS_ADD', () => {
+        expect(
+            getChartAnalyticsData(STATE_TYPES.DRAWING_TOOLS_ADD, {
+                drawing_tool_name: mocked_data.drawing_tool_name,
+                pxthickness: mocked_data.pxthickness,
+                color_name: mocked_data.color_name,
+            })
+        ).toEqual({
+            data: {
+                action: ACTION.ADD_DRAWING_TOOL,
+                drawing_tool_name: mocked_data.drawing_tool_name,
+                pxthickness: mocked_data.pxthickness,
+                color_name: mocked_data.color_name,
+            },
+            event_type: drawing_tools_event_type,
+        });
+    });
+
+    it('should return correct object with data and event_type for STATE_TYPES.DRAWING_TOOLS_DELETE', () => {
+        expect(
+            getChartAnalyticsData(STATE_TYPES.DRAWING_TOOLS_DELETE, {
+                drawing_tool_name: mocked_data.drawing_tool_name,
+                pxthickness: mocked_data.pxthickness,
+                color_name: mocked_data.color_name,
+            })
+        ).toEqual({
+            data: {
+                action: ACTION.DELETE_DRAWING_TOOL,
+                drawing_tool_name: mocked_data.drawing_tool_name,
+                pxthickness: mocked_data.pxthickness,
+                color_name: mocked_data.color_name,
+            },
+            event_type: drawing_tools_event_type,
+        });
+    });
+
+    it('should return correct object with data and event_type for STATE_TYPES.DRAWING_TOOLS_EDIT_PX', () => {
+        expect(
+            getChartAnalyticsData(STATE_TYPES.DRAWING_TOOLS_EDIT_PX, {
+                drawing_tool_name: mocked_data.drawing_tool_name,
+                pxthickness: mocked_data.pxthickness,
+            })
+        ).toEqual({
+            data: {
+                action: ACTION.EDIT_DRAWING_TOOL_PX,
+                drawing_tool_name: mocked_data.drawing_tool_name,
+                pxthickness: mocked_data.pxthickness,
+            },
+            event_type: drawing_tools_event_type,
+        });
+    });
+
+    it('should return correct object with data and event_type for STATE_TYPES.DRAWING_TOOLS_EDIT_COLOR', () => {
+        expect(
+            getChartAnalyticsData(STATE_TYPES.DRAWING_TOOLS_EDIT_COLOR, {
+                drawing_tool_name: mocked_data.drawing_tool_name,
+                color_name: mocked_data.color_name,
+            })
+        ).toEqual({
+            data: {
+                action: ACTION.EDIT_DRAWING_TOOL_COLOR,
+                drawing_tool_name: mocked_data.drawing_tool_name,
+                color_name: mocked_data.color_name,
+            },
+            event_type: drawing_tools_event_type,
+        });
     });
 });
