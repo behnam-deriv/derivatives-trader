@@ -3,6 +3,8 @@
  * Transforms existing Deriv data structures to SmartCharts Champion format
  */
 
+import { getMarketDisplayName, getSubmarketDisplayName } from '../../../AppV2/Utils/symbol-categories-utils';
+
 import type { ILogger } from './types';
 
 /**
@@ -48,20 +50,6 @@ class TransformersLogger implements ILogger {
 const logger = new TransformersLogger(process.env.NODE_ENV === 'development');
 
 /**
- * Maps active symbols market codes to trading times market names
- */
-function getMarketMapping(): Map<string, string> {
-    return MARKET_MAPPINGS.MARKET_DISPLAY_NAMES;
-}
-
-/**
- * Maps active symbols submarket codes to trading times submarket names
- */
-function getSubmarketMapping(): Map<string, string> {
-    return MARKET_MAPPINGS.SUBMARKET_DISPLAY_NAMES;
-}
-
-/**
  * Enriches active symbols with market display names from trading times
  */
 export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
@@ -75,11 +63,9 @@ export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
             return active_symbols;
         }
 
-        // Create lookup maps for efficient searching
+        // Create lookup maps for efficient searching using symbol-categories-utils functions
         const market_display_names = new Map<string, string>();
         const submarket_display_names = new Map<string, string>();
-        const market_mapping = getMarketMapping();
-        const submarket_mapping = getSubmarketMapping();
 
         if (!trading_times.markets || !Array.isArray(trading_times.markets)) {
             return active_symbols;
@@ -90,13 +76,6 @@ export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
                 // Use the name property directly as the display name
                 if (market.name) {
                     market_display_names.set(market.name, market.name);
-
-                    // Also create reverse mapping for market codes
-                    Array.from(market_mapping.entries()).forEach(([code, name]) => {
-                        if (name === market.name) {
-                            market_display_names.set(code, market.name);
-                        }
-                    });
                 }
 
                 if (market.submarkets) {
@@ -105,14 +84,6 @@ export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
                         if (submarket.name && market.name) {
                             const key = `${market.name}_${submarket.name}`;
                             submarket_display_names.set(key, submarket.name);
-
-                            // Also create mapping for market codes and submarket codes
-                            Array.from(market_mapping.entries()).map(([code, name]) => {
-                                if (name === market.name) {
-                                    const code_key = `${code}_${submarket.name}`;
-                                    submarket_display_names.set(code_key, submarket.name);
-                                }
-                            });
                         }
                     });
                 }
@@ -121,17 +92,6 @@ export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
             logger.error('Failed to process markets data in enrichActiveSymbols', markets_error);
             return active_symbols;
         }
-
-        // Add direct submarket code mappings
-        Array.from(submarket_mapping.entries()).forEach(([submarket_code, submarket_name]) => {
-            submarket_display_names.set(submarket_code, submarket_name);
-
-            // Also add with market prefixes
-            Array.from(market_mapping.entries()).forEach(([market_code]) => {
-                const key = `${market_code}_${submarket_code}`;
-                submarket_display_names.set(key, submarket_name);
-            });
-        });
 
         // Create symbol display names lookup
         const symbol_display_names = new Map<string, string>();
@@ -151,44 +111,56 @@ export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
             }
         });
 
-        // Enrich each active symbol
+        // Enrich each active symbol using symbol-categories-utils functions
         const enriched_symbols = active_symbols.map(symbol => {
             const enriched_symbol = { ...symbol };
 
-            // Add market display name using the name property from trading times
+            // Add market display name using getMarketDisplayName from symbol-categories-utils
             if (symbol.market) {
-                enriched_symbol.market_display_name = market_display_names.get(symbol.market) || symbol.market;
+                // First try trading times lookup, then fall back to symbol-categories-utils mapping
+                const trading_times_name = market_display_names.get(symbol.market);
+                enriched_symbol.market_display_name = trading_times_name || getMarketDisplayName(symbol.market);
             }
 
-            // Add submarket display name using the name property from trading times
+            // Add submarket display name using getSubmarketDisplayName from symbol-categories-utils
             if (symbol.submarket) {
                 // Try multiple lookup strategies for submarket
                 let submarket_display_name = symbol.submarket;
 
-                // 1. Try with market prefix
+                // 1. Try with market prefix from trading times
                 if (symbol.market) {
                     const submarket_key = `${symbol.market}_${symbol.submarket}`;
                     submarket_display_name = submarket_display_names.get(submarket_key) || submarket_display_name;
                 }
 
-                // 2. Try direct submarket code lookup
+                // 2. Try direct submarket code lookup from trading times
                 submarket_display_name = submarket_display_names.get(symbol.submarket) || submarket_display_name;
+
+                // 3. Fall back to symbol-categories-utils mapping if not found in trading times
+                if (submarket_display_name === symbol.submarket) {
+                    submarket_display_name = getSubmarketDisplayName(symbol.submarket);
+                }
 
                 enriched_symbol.submarket_display_name = submarket_display_name;
             }
 
-            // Add subgroup display name if available using the name property from trading times
+            // Add subgroup display name if available
             if (symbol.subgroup) {
                 let subgroup_display_name = symbol.subgroup;
 
-                // Try with market prefix
+                // Try with market prefix from trading times
                 if (symbol.market) {
                     const subgroup_key = `${symbol.market}_${symbol.subgroup}`;
                     subgroup_display_name = submarket_display_names.get(subgroup_key) || subgroup_display_name;
                 }
 
-                // Try direct subgroup code lookup
+                // Try direct subgroup code lookup from trading times
                 subgroup_display_name = submarket_display_names.get(symbol.subgroup) || subgroup_display_name;
+
+                // Fall back to symbol-categories-utils mapping if not found in trading times
+                if (subgroup_display_name === symbol.subgroup) {
+                    subgroup_display_name = getSubmarketDisplayName(symbol.subgroup);
+                }
 
                 enriched_symbol.subgroup_display_name = subgroup_display_name;
             }
@@ -215,6 +187,7 @@ export function enrichActiveSymbols(active_symbols: any[], trading_times: any) {
 }
 
 // Market and Submarket Mappings
+// @deprecated Use getMarketDisplayName and getSubmarketDisplayName from symbol-categories-utils.ts instead
 export const MARKET_MAPPINGS = {
     MARKET_DISPLAY_NAMES: new Map([
         ['synthetic_index', 'Derived'],

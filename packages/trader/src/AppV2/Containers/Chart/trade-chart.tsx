@@ -110,6 +110,7 @@ const TradeChart = observer(() => {
             is_accumulator,
             updateAccumulatorBarriersData,
             setTickData,
+            current_language,
         });
 
     React.useEffect(() => {

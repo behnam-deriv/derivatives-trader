@@ -8,6 +8,7 @@ import {
     TSubscribeQuotes,
     TUnsubscribeQuotes,
 } from '../Adapters';
+import { enrichActiveSymbols } from '../Adapters/transformers';
 
 interface AccumulatorBarriersData {
     current_spot?: number;
@@ -33,6 +34,7 @@ interface UseSmartChartsAdapterConfig {
     is_accumulator?: boolean;
     updateAccumulatorBarriersData?: (data: AccumulatorBarriersData) => void;
     setTickData?: (data: TickData) => void;
+    current_language?: string;
 }
 
 interface ChartData {
@@ -64,7 +66,17 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
         is_accumulator,
         updateAccumulatorBarriersData,
         setTickData,
+        current_language,
     } = config;
+
+    // Store raw data for re-enrichment on language change
+    const rawDataRef = React.useRef<{
+        rawActiveSymbols: any[];
+        rawTradingTimes: any;
+    }>({
+        rawActiveSymbols: [],
+        rawTradingTimes: {},
+    });
 
     // Initialize SmartCharts Champion Adapter
     const smartChartsAdapter = React.useMemo(() => {
@@ -91,9 +103,15 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
         setError(null);
         try {
             const data = await smartChartsAdapter.getChartData();
+            const { rawData, activeSymbols, tradingTimes } = data;
+            rawDataRef.current = {
+                rawActiveSymbols: rawData.activeSymbols,
+                rawTradingTimes: rawData.tradingTimes,
+            };
+
             setChartData({
-                activeSymbols: data.activeSymbols,
-                tradingTimes: data.tradingTimes,
+                activeSymbols,
+                tradingTimes,
             });
         } catch (error) {
             // eslint-disable-next-line no-console
@@ -109,15 +127,48 @@ export const useSmartChartsAdapter = (config: UseSmartChartsAdapterConfig = {}):
         await fetchChartData();
     }, [fetchChartData]);
 
-    // Initialize chart data on mount
+    // Initialize chart data on mount and re-enrich when language changes
     const hasFetchedRef = React.useRef(false);
+    const previousLanguageRef = React.useRef(current_language);
+    const languageChangeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
     React.useEffect(() => {
+        // First time: fetch data
         if (!hasFetchedRef.current) {
             hasFetchedRef.current = true;
             fetchChartData();
+            return;
         }
-    }, [fetchChartData]);
+
+        // Language changed: re-enrich existing data after 2 second delay
+        if (previousLanguageRef.current !== current_language) {
+            previousLanguageRef.current = current_language;
+
+            // Clear any existing timeout
+            if (languageChangeTimeoutRef.current) {
+                clearTimeout(languageChangeTimeoutRef.current);
+            }
+
+            // Add 2 second delay before re-enriching
+            languageChangeTimeoutRef.current = setTimeout(() => {
+                // Re-enrich the raw active symbols with updated language
+                const { rawActiveSymbols, rawTradingTimes } = rawDataRef.current;
+                const enrichedSymbols = enrichActiveSymbols(rawActiveSymbols, rawTradingTimes);
+
+                setChartData(prev => ({
+                    ...prev,
+                    activeSymbols: enrichedSymbols,
+                }));
+            }, 2000);
+        }
+
+        // Cleanup timeout on unmount
+        return () => {
+            if (languageChangeTimeoutRef.current) {
+                clearTimeout(languageChangeTimeoutRef.current);
+            }
+        };
+    }, [fetchChartData, current_language]);
 
     // Memoized getQuotes function
     const getQuotes = React.useCallback<TGetQuotes>(
