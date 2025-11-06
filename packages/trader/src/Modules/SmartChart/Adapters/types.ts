@@ -111,6 +111,10 @@ export interface TradingTimesMap {
 
 // Chart data response
 export interface ChartDataResponse {
+    rawData: {
+        activeSymbols: ActiveSymbols;
+        tradingTimes: TradingTimesMap;
+    };
     activeSymbols: ActiveSymbols;
     tradingTimes: TradingTimesMap;
 }

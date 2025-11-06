@@ -65,6 +65,7 @@ const ReplayChart = observer(
                 is_accumulator: !!is_accumulator_contract,
                 updateAccumulatorBarriersData: () => {}, // No-op for replay chart
                 setTickData: () => {}, // No-op for replay chart
+                current_language,
             });
 
         const isBottomWidgetVisible = () => {

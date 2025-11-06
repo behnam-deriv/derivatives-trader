@@ -344,7 +344,14 @@ export function buildSmartChartsChampionAdapter(
          * Get chart reference data (symbols and trading times)
          * Uses optimized transformations that work with existing store data
          */
-        async getChartData(): Promise<{ activeSymbols: ActiveSymbols; tradingTimes: TradingTimesMap }> {
+        async getChartData(): Promise<{
+            activeSymbols: ActiveSymbols;
+            rawData: {
+                activeSymbols: any[];
+                tradingTimes: any;
+            };
+            tradingTimes: TradingTimesMap;
+        }> {
             logger.info('Fetching chart reference data using optimized transformations');
 
             try {
@@ -370,10 +377,18 @@ export function buildSmartChartsChampionAdapter(
                     tradingTimesCount: Object.keys(plainTradingTimes).length,
                 });
 
-                return { activeSymbols: enriched_symbols, tradingTimes };
+                return {
+                    activeSymbols: enriched_symbols,
+                    rawData: { activeSymbols, tradingTimes: tradingTimesData.raw },
+                    tradingTimes,
+                };
             } catch (error) {
                 logger.error('Error fetching chart reference data', error);
                 return {
+                    rawData: {
+                        activeSymbols: [],
+                        tradingTimes: {},
+                    },
                     activeSymbols: [],
                     tradingTimes: {},
                 };

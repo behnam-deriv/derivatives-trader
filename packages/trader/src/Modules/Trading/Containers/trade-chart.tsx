@@ -85,6 +85,7 @@ const TradeChart = observer((props: TTradeChartProps) => {
             is_accumulator,
             updateAccumulatorBarriersData,
             setTickData,
+            current_language,
         });
 
     const bottomWidgets = React.useCallback(
