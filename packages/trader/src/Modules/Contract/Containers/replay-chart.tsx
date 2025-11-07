@@ -8,7 +8,7 @@ import { Loader, useDevice } from '@deriv-com/ui';
 import { SmartChart } from 'Modules/SmartChart';
 import ChartMarker from 'Modules/SmartChart/Components/Markers/marker';
 import ResetContractChartElements from 'Modules/SmartChart/Components/Markers/reset-contract-chart-elements';
-import { useTraderStore } from 'Stores/useTraderStores';
+import { useSmartChartsAdapter } from 'Modules/SmartChart/Hooks/useSmartChartsAdapter';
 
 import { ChartBottomWidgets, ChartTopWidgets } from './contract-replay-widget';
 
@@ -24,7 +24,6 @@ const ReplayChart = observer(
         is_reset_contract?: boolean;
         is_vertical_scroll_disabled?: boolean;
     }) => {
-        const trade = useTraderStore();
         const { contract_replay, common, ui } = useStore();
         const { isMobile } = useDevice();
         const { contract_store, chart_state, chartStateChange, margin } = contract_replay;
@@ -56,7 +55,18 @@ const ReplayChart = observer(
         };
         const scroll_to_epoch = allow_scroll_to_epoch && contract_config ? contract_config.scroll_to_epoch : undefined;
         const all_ticks = audit_details ? audit_details.all_ticks : [];
-        const { wsForget, wsSubscribe, wsSendRequest, wsForgetStream } = trade;
+
+        // Use centralized SmartCharts adapter hook
+        const { chartData, isLoading, error, getQuotes, subscribeQuotes, unsubscribeQuotes, retryFetchChartData } =
+            useSmartChartsAdapter({
+                debug: false,
+                activeSymbols: [], // Replay chart doesn't need active symbols
+                granularity: granularity || 0,
+                is_accumulator: !!is_accumulator_contract,
+                updateAccumulatorBarriersData: () => {}, // No-op for replay chart
+                setTickData: () => {}, // No-op for replay chart
+                current_language,
+            });
 
         const isBottomWidgetVisible = () => {
             return !isMobile && is_digit_contract;
@@ -82,6 +92,36 @@ const ReplayChart = observer(
 
         if (!symbol) return <Loader />;
 
+        if (isLoading) {
+            return (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+                    <Loader />
+                </div>
+            );
+        }
+
+        if (error) {
+            return (
+                <div
+                    style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        height: '400px',
+                        gap: '16px',
+                    }}
+                >
+                    <div>Error loading chart data: {error.message}</div>
+                    <button onClick={retryFetchChartData} style={{ padding: '8px 16px', cursor: 'pointer' }}>
+                        Retry
+                    </button>
+                </div>
+            );
+        }
+
+        if (!chartData || !chartData.tradingTimes) return <Loader />;
+
         return (
             <SmartChart
                 id='replay'
@@ -95,12 +135,12 @@ const ReplayChart = observer(
                 enabledNavigationWidget={!isMobile}
                 enabledChartFooter={false}
                 granularity={granularity}
-                requestAPI={wsSendRequest}
-                requestForget={wsForget}
-                requestForgetStream={wsForgetStream}
+                getQuotes={getQuotes}
+                chartData={chartData}
+                subscribeQuotes={subscribeQuotes}
+                unsubscribeQuotes={unsubscribeQuotes}
                 crosshair={isMobile ? 0 : undefined}
                 maxTick={isMobile ? 8 : undefined}
-                requestSubscribe={wsSubscribe}
                 settings={settings}
                 startEpoch={start_epoch}
                 scrollToEpoch={scroll_to_epoch}
@@ -121,7 +161,6 @@ const ReplayChart = observer(
                     getDurationUnitText(getDurationPeriod(contract_info)) !== 'seconds' ||
                     contract_info.status === 'open'
                 }
-                shouldDrawTicksFromContractInfo={is_accumulator_contract}
                 contractInfo={contract_info}
                 contracts_array={getContractsArray()}
                 isLive={!has_ended}
@@ -140,7 +179,6 @@ const ReplayChart = observer(
                     <ResetContractChartElements contract_info={contract_info} />
                 )}
             </SmartChart>
-            // <>Chart here</>
         );
     }
 );
