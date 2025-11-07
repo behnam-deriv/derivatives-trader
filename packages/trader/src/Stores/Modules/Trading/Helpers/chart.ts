@@ -283,7 +283,7 @@ const getMarketTypeFormAnalyticsData = (state: keyof typeof STATE_TYPES, option:
 };
 
 const getDrawingToolsFormAnalyticsData = (state: keyof typeof STATE_TYPES, option: TStateChangeOption = {}) => {
-    const { drawing_tool_name = '', pxthickness = '', color_name = '', is_open } = option;
+    const { drawing_tool_name = '', pxthickness = '', color_name = '' } = option;
     const drawing_tools_event_type = 'ce_drawing_tools_form_v2';
     const payload = {
         event_type: drawing_tools_event_type,
